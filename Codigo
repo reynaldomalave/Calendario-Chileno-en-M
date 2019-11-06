@@ -1,0 +1,93 @@
+let
+    #"Benvenido al Calendario Chileno" = 1,
+    FechaInicio = #date(2017, 1, 1),
+    FechaFin = Date.EndOfYear(DateTime.Date(DateTime.FixedLocalNow())),
+    FechaActual = DateTime.Date(DateTime.FixedLocalNow()),
+    MesFinAñoFiscal = 3,
+    #"==Configure los Parametros==" = 1,
+    #"==Construir Columna de Fechas==" = #"==Configure los Parametros==",
+    ListDates = List.Dates(FechaInicio, Number.From(FechaFin - FechaInicio)+1, #duration(1,0,0,0)),
+    #"Convertir a Tabla" = Table.FromList(ListDates, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    #"Renombrar Columna Fecha" = Table.RenameColumns(#"Convertir a Tabla",{{"Column1", "Fecha"}}),
+    #"Convertir a Formato Fecha" = Table.TransformColumnTypes(#"Renombrar Columna Fecha",{{"Fecha", type date}}),
+    #"==Agregar Columnas al Calendario==" = #"Convertir a Formato Fecha",
+    #"Agregar Columna Número Mes" = Table.AddColumn(#"==Agregar Columnas al Calendario==", "Mes Número", each Date.Month([Fecha]), Int64.Type),
+    #"Agregar Columna Día" = Table.AddColumn(#"Agregar Columna Número Mes", "Día Mes", each Date.Day([Fecha]), Int64.Type),
+    #"Agregar Columna Mes Corto" = Table.AddColumn(#"Agregar Columna Día", "Mes Corto", each Text.Start(Date.MonthName([Fecha]),3), type text),
+    #"Agregar Columna Mes Largo" = Table.AddColumn(#"Agregar Columna Mes Corto", "Mes Largo", each Date.MonthName([Fecha]), type text),
+    #"Agregar Trimestre" = Table.AddColumn(#"Agregar Columna Mes Largo", "Trimestre", each "T" & Text.From(Date.QuarterOfYear([Fecha]))),
+    #"Agregar Columna Año" = Table.AddColumn(#"Agregar Trimestre", "Año", each Date.Year([Fecha]), Int64.Type),
+    #"==Agregar Columna Año Fiscal==" = #"Agregar Columna Año",
+    #"Agregar Columna Número Mes Fiscal" = Table.AddColumn(#"==Agregar Columna Año Fiscal==", "Número Mes Fiscal", each 
+        if [Mes Número] > MesFinAñoFiscal
+            then [Mes Número] - MesFinAñoFiscal
+            else [Mes Número] + (12 - MesFinAñoFiscal), type number),
+    #"Agregar Columna Mes Fiscal Corto" = Table.AddColumn(#"Agregar Columna Número Mes Fiscal", "Mes Fiscal", each [Mes Corto]),
+    #"Agregar Columna Mes Fiscal Largo" = Table.AddColumn(#"Agregar Columna Mes Fiscal Corto", "Mes Fiscal Largo", each [Mes Largo]),
+    #"Agregar Trimestre Fiscal" = Table.AddColumn(#"Agregar Columna Mes Fiscal Largo", "Trimestre Fiscal", each "TF" & Text.From(Number.RoundUp([Número Mes Fiscal] / 3,0))),
+    #"Agregar Año Fiscal" = Table.AddColumn(#"Agregar Trimestre Fiscal", "Año Fiscal", each "AF" & Text.End(Text.From(
+    if [Mes Número] > MesFinAñoFiscal
+    then [Año] + 1
+    else [Año])
+    ,2
+        )),
+    #"Filtrar filas a Fecha Actual" = Table.SelectRows(#"Agregar Año Fiscal", each ([Fecha] = FechaActual)),
+    #"Año Fiscal" = #"Agregar Año Fiscal"{0}[Año Fiscal],
+    #"Continuar Construyendo Calendario" = #"Agregar Año Fiscal",
+    #"==Agregar Columnas Generales==" = #"Continuar Construyendo Calendario",
+    #"Agregar Número Día Semana" = Table.AddColumn(#"==Agregar Columnas Generales==", "Numero Día Semana", each Date.DayOfWeek([Fecha]), Int64.Type),
+    #"Agregar Día Semana" = Table.AddColumn(#"Agregar Número Día Semana", "Día Semana", each Text.Start(Date.DayOfWeekName([Fecha]),3), type text),
+    #"Agregar Semana Año" = Table.AddColumn(#"Agregar Día Semana", "Semana Año", each Date.WeekOfYear([Fecha])),
+    #"Agregar Feriado" = Table.AddColumn(#"Agregar Semana Año", "Feriado", each 
+    if [Numero Día Semana] = 6 
+        or ([Mes Número] = 1 and [Día Mes]= 1)
+        or ([Mes Número] = 5 and [Día Mes]= 1)
+        or ([Mes Número] = 5 and [Día Mes]= 21)
+        or ([Mes Número] = 6 and [Día Mes]= 7)
+        or ([Mes Número] = 7 and [Día Mes]= 16)
+        or ([Mes Número] = 8 and [Día Mes]= 15)
+        or ([Mes Número] = 8 and [Día Mes]= 20)
+        or ([Mes Número] = 9 and [Día Mes]= 18)
+        or ([Mes Número] = 9 and [Día Mes]= 19)
+        or ([Mes Número] = 10 and [Día Mes]= 12)
+        or ([Mes Número] = 10 and [Día Mes]= 31)
+        or ([Mes Número] = 11 and [Día Mes]= 1)
+        or ([Mes Número] = 12 and [Día Mes]= 25)
+        or ([Mes Número] = 4 and [Día Mes]= 10 and [Año] = 2020)
+        or ([Mes Número] = 4 and [Día Mes]= 11 and [Año] = 2020)
+        or ([Mes Número] = 6 and [Día Mes]= 29 and [Año] = 2020)
+        or ([Mes Número] = 4 and [Día Mes]= 2 and [Año] = 2021)
+        or ([Mes Número] = 4 and [Día Mes]= 3 and [Año] = 2021)
+        or ([Mes Número] = 7 and [Día Mes]= 2 and [Año] = 2021)
+        or ([Mes Número] = 4 and [Día Mes]= 15 and [Año] = 2022)
+        or ([Mes Número] = 4 and [Día Mes]= 16 and [Año] = 2022)
+        or ([Mes Número] = 6 and [Día Mes]= 27 and [Año] = 2022)
+        or ([Mes Número] = 4 and [Día Mes]= 7 and [Año] = 2023)
+        or ([Mes Número] = 4 and [Día Mes]= 8 and [Año] = 2023)
+        or ([Mes Número] = 6 and [Día Mes]= 26 and [Año] = 2023)
+        or ([Mes Número] = 3 and [Día Mes]= 29 and [Año] = 2024)
+        or ([Mes Número] = 3 and [Día Mes]= 30 and [Año] = 2024)
+        or ([Mes Número] = 6 and [Día Mes]= 29 and [Año] = 2024)
+        or ([Mes Número] = 4 and [Día Mes]= 18 and [Año] = 2025)
+        or ([Mes Número] = 4 and [Día Mes]= 19 and [Año] = 2025)
+        or ([Mes Número] = 6 and [Día Mes]= 26 and [Año] = 2025)
+        or ([Mes Número] = 4 and [Día Mes]= 3 and [Año] = 2026)
+        or ([Mes Número] = 4 and [Día Mes]= 4 and [Año] = 2026)
+        or ([Mes Número] = 6 and [Día Mes]= 29 and [Año] = 2026)
+        or ([Mes Número] = 3 and [Día Mes]= 26 and [Año] = 2027)
+        or ([Mes Número] = 3 and [Día Mes]= 27 and [Año] = 2027)
+        or ([Mes Número] = 7 and [Día Mes]= 2 and [Año] = 2027)
+        or ([Mes Número] = 4 and [Día Mes]= 15 and [Año] = 2028)
+        or ([Mes Número] = 4 and [Día Mes]= 14 and [Año] = 2028)
+        or ([Mes Número] = 6 and [Día Mes]= 26 and [Año] = 2028)
+        or ([Mes Número] = 3 and [Día Mes]= 30 and [Año] = 2029)
+        or ([Mes Número] = 3 and [Día Mes]= 31 and [Año] = 2029)
+        or ([Mes Número] = 7 and [Día Mes]= 2 and [Año] = 2029)
+        or ([Mes Número] = 4 and [Día Mes]= 19 and [Año] = 2030)
+        or ([Mes Número] = 4 and [Día Mes]= 20 and [Año] = 2030)
+        or ([Mes Número] = 6 and [Día Mes]= 29 and [Año] = 2030)
+
+    then "Feriado"
+    else "Laboral")
+in
+    #"Agregar Feriado"
